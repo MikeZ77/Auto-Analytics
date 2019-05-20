@@ -30,7 +30,6 @@ class crawler(Thread):
 		for tag in self.bsParse:
 			if 'href' in tag.a.attrs: self.links.append('https://www.autotrader.ca'+ tag.a.attrs['href'])
 
-	
 	def update_request(self,link):
 		print(link)
 		self.req = requests.get(link,headers=self.header)
@@ -38,7 +37,18 @@ class crawler(Thread):
 		self.bsObj = BeautifulSoup(self.content,'lxml')
 		
 	def check_page_index(self):
-		pass
+		#get current page
+		self.bsParse = str(self.bsObj.findAll('script',limit=20)[19:20])
+		start_index = self.bsParse.rfind('"CurrentPage":')
+		current_page = self.bsParse[start_index+15:start_index+18]
+		#get max page
+		start_index = self.bsParse.rfind('"MaxPage":')
+		max_page = self.bsParse[start_index+11:start_index+14]
+
+		if current_page < max_page: 
+			return False
+		else:
+			return True
 
 	def gather_details(self):
 
@@ -99,7 +109,7 @@ if __name__ == '__main__':
 	max_index = 1000
 	threads = []
 	set_threads = 10	
-
+	
 	#main loop
 	for current_range in range(len(price_range)):
 		Q = get_q(current_range)
@@ -113,10 +123,12 @@ if __name__ == '__main__':
 
 	
 		for thread in threads: thread.join()
-		print("hello")
+		
 
 	
-	#crawler1 = crawler(url)
+	#crawler1 = crawler('https://wwwb.autotrader.ca/cars/bc/coquitlam/?rcp=100&rcs=37100&srt=3&prx=100&prv=British%20Columbia&loc=V3J%203S9&hprc=True&wcp=True&sts=New-Used&inMarket=basicSearch')
+	#flag = crawler1.check_page_index()
+	#print(flag)
 	#crawler1.gather_links()
 	#crawler1.gather_details()
 	
