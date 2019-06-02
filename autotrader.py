@@ -1,14 +1,15 @@
 import queue
 from bs4 import BeautifulSoup
-import pymysql
+import mysql.connector
 import sys
 from threading import Thread, Lock
+from datetime import datetime
 import requests
 import re
 
 class crawler(Thread):
 	#class variables
-	conn = pymysql.connect(user='root', password='root', host='localhost',database='sys')
+	conn = mysql.connector.connect(user='root', passwd='root', host='localhost',database='sys')
 	header = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
 				AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36'}
 
@@ -31,7 +32,7 @@ class crawler(Thread):
 			if 'href' in tag.a.attrs: self.links.append('https://www.autotrader.ca'+ tag.a.attrs['href'])
 
 	def update_request(self,link):
-		#print(link)
+		
 		self.req = requests.get(link,headers=self.header)
 		self.content = self.req.content
 		self.bsObj = BeautifulSoup(self.content,'lxml')
@@ -52,29 +53,41 @@ class crawler(Thread):
 
 	def update_db(self, data):
 		
+		cursor = self.conn.cursor()
+		
 		for row in data:
 
-			sql_update = """INSERT INTO autotrader(adID, condition, make, model, price, province, rawLocation, 
-							year, kilometers, exterior color, fuel type) VALUES('%s','%s','%s','%s',%s,'%s','%s',%s,%s,'%s')"""%(
-							row['adID'], row['condition'], row['make'], row['model'], row['price'], row['province'],
-							row['rawLocation'], row['year'], row['kilometres'], row['fuel type'])
+			cur_time = datetime.now()
+			formated = cur_time.strftime('%Y-%m-%d %H:%M:%S')
+			
+			values = (row['adID'], row['condition'], row['make'], row['model'], row['price'], row['province'],
+			row['rawLocation'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'])
 
-			cursor = self.conn.cursor()
-			cursor.execute(sql_update)
-			self.conn.commit()
-			# try:
-			# 	cursor.execute(sql_update)
-			# 	self.conn.commit()
-			# except:
-			# 	self.conn.rollback()
+			sql_autotrader = """INSERT INTO autotrader(adID, `condition`, make, model, price, province, rawLocation, `year`, kilometers, exterior_color, fuel_type) 
+							    VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
+			
+			sql_turnover = """INSERT INTO turnover(adID, time_entered, time_updated) 
+							  VALUES('%s','%s',%s)
+							  ON DUPLICATE KEY UPDATE time_updated = '%s';"""%(row['adID'],formated,'NULL',formated)		
+			
+			try:
+				cursor.execute(sql_turnover)
+				self.conn.commit()
+				cursor.execute(sql_autotrader)
+				self.conn.commit()
+			except:
+				self.conn.rollback()
+		
+		cursor.close()
 
 	def gather_details(self):
 
 		self.vehicles = []
-		vehicle_details = {'adID':'','condition':'','make':'','model':'','price':'','province':'','rawLocation':'',
-							'year':'','kilometres':'','exterior colour':'','fuel type':''}
 
 		for link in self.links:
+
+			vehicle_details = {'adID':'','condition':'','make':'','model':'','price':'','province':'','rawLocation':'',
+					'year':'','kilometres':'','exterior colour':'','fuel type':''}
 
 			self.update_request(link) 
 			#collect data from gtmManager.initializeDataLayer				
@@ -82,7 +95,7 @@ class crawler(Thread):
 			details = re.sub('"','',self.bsParse[2].text)
 			details = re.split(',|:|{',details)
 			details = details[:details.index('pageType')]
-				
+							
 			#collect remaining data from id="vdp-specs-content"
 			self.bsParse = self.bsObj.findAll('div',{'id':'vdp-specs-content'})
 			self.bsParse = re.sub('\\n|<th>|</th>|</td>',' ',str(self.bsParse[0]).lower())
@@ -94,9 +107,11 @@ class crawler(Thread):
 			for key in vehicle_details:
 				index = details.index(key)					#TODO: error handling on .index()
 				vehicle_details[key] = details[index+1]
-
-			#print(vehicle_details)
+				
+			#if self.getName()=='thread0': print(vehicle_details)
 			self.vehicles.append(vehicle_details)
+			#if self.getName()=='thread0': print('----------------------------------------------------------')
+			#if self.getName()=='thread0': print(self.vehicles)
 
 		self.links = []
 		return self.vehicles
@@ -153,7 +168,9 @@ if __name__ == '__main__':
 	
 	#main loop
 	for current_range in range(len(price_range)):
+		print('-----------------------------------------------------------------------------')
 		print('populating queue for range {} ...'.format(price_range[current_range]))
+		print('-----------------------------------------------------------------------------')
 		Q = get_q(current_range)
 		
 		for i in range(set_threads):
