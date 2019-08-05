@@ -7,7 +7,6 @@ from datetime import datetime
 from proxybroker import Broker
 import asyncio
 import logging
-import warnings
 import requests
 import random
 import re
@@ -41,10 +40,10 @@ def get_proxies(num):
 
 	try: 
 		loop = asyncio.get_event_loop()
-		loop.run_until_complete(tasks)
-	except:
-		print("CLOSING ...")
-		sys.exit(-1)
+		loop.run_until_complete(asyncio.wait_for(tasks, 30))
+	except asyncio.TimeoutError:
+		print("RETRYING PROXIES ...")
+		#loop.close()
 	finally:
 		print(proxy_list)
 		return proxy_list
@@ -122,7 +121,7 @@ class crawler(Thread):
 		
 	def check_page_index(self):
 		#get current page
-		self.bsParse = str(self.bsObj.findAll('script',limit=20)[19:20])
+		self.bsParse = str(self.bsObj.findAll('script',limit=21)[20:21])
 		start_index = self.bsParse.rfind('"CurrentPage":')
 		current_page = self.bsParse[start_index+15:start_index+18]
 		#get max page
@@ -253,15 +252,14 @@ if __name__ == '__main__':
 					(60001,70000),(70001,80000),(80001,90000),(90001,100000),(100001,200000),(200001,2000000)]
 
 	max_index = 1000
-	num_proxies = 10
-	cycled_proxies = 5
+	num_proxies = 70
+	cycled_proxies = 10
 	set_threads = 10
-	threads = []
+	threads,proxies = [],[]
 	db_lock = Lock()
 	proxy_lock = Lock()
 	main_Q = queue.Queue()
 	worker_Q = queue.Queue()
-	warnings.simplefilter("error", UserWarning)
 	logging.basicConfig(filename='error.log',level=logging.INFO,format='%(asctime)s:%(threadName)s:%(levelname)s:%(message)s')
 
 	#main loop
@@ -274,7 +272,7 @@ if __name__ == '__main__':
 		print('retrieving proxies ...')
 		print('-----------------------------------------------------------------------------')
 	
-		proxies = get_proxies(num_proxies)
+		while len(proxies)<num_proxies: proxies = get_proxies(num_proxies)
 		proxies = parse_proxies(proxies, 'https')
 	
 		for i in range(set_threads):
@@ -287,7 +285,8 @@ if __name__ == '__main__':
 		#listen for fresh proxy request from thread
 			fresh_proxies = main_Q.get()
 			if fresh_proxies:
-				fresh_proxies = get_proxies(cycled_proxies)
+				fresh_proxies = []
+				while len(fresh_proxies)<cycled_proxies: fresh_proxies = get_proxies(cycled_proxies)
 				fresh_proxies = parse_proxies(fresh_proxies, 'https')
 				worker_Q.put(fresh_proxies)
 			else:
