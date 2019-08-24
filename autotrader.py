@@ -47,6 +47,7 @@ def get_proxies(num):
 		#loop.close()
 	finally:
 		print(proxy_list)
+		#loop.stop()
 		return proxy_list
 
 
@@ -122,17 +123,27 @@ class Crawler(Thread):
 		
 	def check_page_index(self):
 		#get current page
-		self.bsParse = str(self.bsObj.findAll('script',limit=21)[20:21])
+		self.bsParse = str(self.bsObj.findAll('script',limit=24)[15:24])
 		start_index = self.bsParse.rfind('"CurrentPage":')
 		current_page = self.bsParse[start_index+15:start_index+18]
 		#get max page
 		start_index = self.bsParse.rfind('"MaxPage":')
 		max_page = self.bsParse[start_index+11:start_index+14]
 
-		if current_page < max_page: 
+		if not current_page or not max_page:
+			print(self.path)
 			return False
 		else:
-			return True
+			if current_page[-1]==',': current_page = current_page[:-1]
+			if int(current_page) < int(max_page): 
+				print(self.path)
+				print('{} {}'.format(current_page,max_page))
+				print('{} {}'.format(type(current_page),type(max_page)))
+				return False
+			else:
+				print('{} {}'.format(current_page,max_page))
+				print('{} {}'.format(type(current_page),type(max_page)))
+				return True
 
 	def update_db(self, data):
 	
@@ -143,9 +154,9 @@ class Crawler(Thread):
 			formated = cur_time.strftime('%Y-%m-%d %H:%M:%S')
 			
 			values = (row['adID'], row['condition'], row['make'], row['model'], row['price'], row['province'],
-			row['rawLocation'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'])
+			row['city'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'])
 
-			sql_autotrader = """INSERT INTO autotrader(adID, `condition`, make, model, price, province, rawLocation, `year`, kilometers, exterior_color, fuel_type, body_type) 
+			sql_autotrader = """INSERT INTO autotrader(adID, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type) 
 								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
 			
 			sql_turnover = """INSERT INTO turnover(adID, time_entered, time_updated) 
@@ -172,12 +183,13 @@ class Crawler(Thread):
 		#TODO: Include error handling for empty links
 		for link in self.links:
 
-			vehicle_details = {'adID':'','condition':'','make':'','model':'','price':'','province':'','rawLocation':'',
+			vehicle_details = {'adID':'','condition':'','make':'','model':'','price':'','province':'','city':'',
 					'year':'','kilometres':'','exterior colour':'','fuel type':'','body type':''}
 
 			self.update_request(link) 
 			#collect data from gtmManager.initializeDataLayer				
 			self.bsParse = self.bsObj.findAll('script',limit=3)
+
 			try:
 				details = re.sub('"','',self.bsParse[2].text)
 			except:
@@ -185,8 +197,9 @@ class Crawler(Thread):
 				continue
 
 			details = re.split(',|:|{',details)
-			details = details[:details.index('pageType')]
-							
+			details = details[:details.index('lists')] + details[details.index('city'):]
+			details[details.index('city')+1] = re.sub('}','',details[details.index('city')+1])
+
 			#collect remaining data from id="vdp-specs-content"
 			self.bsParse = self.bsObj.findAll('div',{'id':'vdp-specs-content'})
 			try:
