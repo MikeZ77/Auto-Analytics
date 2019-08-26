@@ -5,7 +5,6 @@ import os
 import time
 from threading import Thread, Lock
 from datetime import datetime
-from proxybroker import Broker
 import asyncio
 import logging
 import requests
@@ -26,38 +25,22 @@ def get_q(rng):
 	return Q
 
 def get_proxies(num, wait):
-	asyncio.new_event_loop()
+	
+	os.system('> proxies.txt')
+	os.system('timeout '+str(wait)+'s '+'proxybroker find --types HTTPS --lvl High --countries US CA --strict -l '+ str(num) +' > proxies.txt')
 
-	proxy_list = list()
-	async def show(proxies):
-		while True:
-			proxy = await proxies.get()
-			if proxy is None: break
-			proxy_list.append(str(proxy))
+	with open('proxies.txt','r') as proxy_file:
+		proxy_list = proxy_file.readlines()
 
-	proxies = asyncio.Queue()
-	broker = Broker(proxies)
-	tasks = asyncio.gather(
-		broker.find(types=['HTTPS'], limit=num, countries=['US','CA']),
-		show(proxies))
-
-	try: 
-		loop = asyncio.get_event_loop()
-		loop.run_until_complete(asyncio.wait_for(tasks, wait))
-	except asyncio.TimeoutError:
-		print("RETRYING PROXIES ...")
-		loop.close()
-	finally:
-		print(proxy_list)
-		loop.close()
-		return proxy_list
-
+	return proxy_list
 
 def parse_proxies(proxy_list, protocol):
 	parsed_list = list();
 	for proxy in proxy_list:
+		proxy.strip()
 		index = proxy.find(']')
-		parsed_list.append(protocol+'://'+proxy[index+2:len(proxy)-1]) 
+		parsed_list.append(protocol+'://'+proxy[index+2:len(proxy)-2]) 
+	print(parsed_list)
 	return parsed_list
 
 class Crawler(Thread):
