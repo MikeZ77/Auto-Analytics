@@ -14,9 +14,10 @@ ENVIRONMENT VARIABLES:
 
 #DATABSE PROPERTIES
 
-USER=''
-HOST=''
+USER_NAME=''
+HOST_NAME=''
 PASSWORD=''
+DATABASE=''
 
 RUN COMMAND:
 python3.6 autotrader.py -threads -proxy_total -proxy_refresh -proxy_wait -timeout

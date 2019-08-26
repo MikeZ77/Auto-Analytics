@@ -1,7 +1,8 @@
 import queue
 from bs4 import BeautifulSoup
 import mysql.connector
-import sys
+import os
+import time
 from threading import Thread, Lock
 from datetime import datetime
 from proxybroker import Broker
@@ -24,7 +25,8 @@ def get_q(rng):
 	
 	return Q
 
-def get_proxies(num):
+def get_proxies(num, wait):
+	asyncio.new_event_loop()
 
 	proxy_list = list()
 	async def show(proxies):
@@ -41,13 +43,13 @@ def get_proxies(num):
 
 	try: 
 		loop = asyncio.get_event_loop()
-		loop.run_until_complete(asyncio.wait_for(tasks, 50))
+		loop.run_until_complete(asyncio.wait_for(tasks, wait))
 	except asyncio.TimeoutError:
 		print("RETRYING PROXIES ...")
-		#loop.close()
+		loop.close()
 	finally:
 		print(proxy_list)
-		#loop.stop()
+		loop.close()
 		return proxy_list
 
 
@@ -71,10 +73,11 @@ class Crawler(Thread):
 		   'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) Gecko/20100101 Firefox/54.0',
 		   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Safari/605.1.15]']
 
-	conn = mysql.connector.connect(user='root', passwd='root', host='localhost',database='sys')
+	conn = mysql.connector.connect(user=os.environ['USER_NAME'], passwd=os.environ['PASSWORD'], host=os.environ['HOST_NAME'],database=os.environ['DATABASE'])
 	proxies = None
+	timout = None
 
-	def __init__(self, outside_proxy, main_Q, worker_Q):
+	def __init__(self, outside_proxy, main_Q, worker_Q, timeout):
 		Thread.__init__(self)
 		#instance variables
 		#connection/page objects
@@ -83,6 +86,7 @@ class Crawler(Thread):
 		self.bsObj = None
 		self.path = None
 		self.init_proxies(outside_proxy)
+		self.init_timeout(timeout)
 		#page structures
 		self.bsParse = []
 		self.links = []
@@ -97,14 +101,18 @@ class Crawler(Thread):
 		for tag in self.bsParse:
 			if 'href' in tag.a.attrs: self.links.append('https://www.autotrader.ca'+ tag.a.attrs['href'])
 
+	def init_timeout(self, timeout):
+		Crawler.timeout = timeout
+
 	def init_proxies(self, outside_proxy):
 		Crawler.proxies = outside_proxy
 
 	def update_request(self,link):
 
 		self.req = None
-		while self.req is None:
+		while str(self.req) != '<Response [200]>':
 			
+			time.sleep(Crawler.timeout)
 			try:
 				proxy = random.choice(Crawler.proxies)
 				self.req = requests.get(link,headers={'user-agent':random.choice(self.headers)}, proxies={'https':proxy}, timeout=10)
@@ -117,9 +125,14 @@ class Crawler(Thread):
 				print("{} other connection issue using ip: {} ... Dropping from proxies ...".format(self.getName(), proxy))
 				if proxy in Crawler.proxies: 
 					Crawler.proxies.remove(proxy)
+			else:
+				self.content = self.req.content
+				self.bsObj = BeautifulSoup(self.content,'lxml')
 
-		self.content = self.req.content
-		self.bsObj = BeautifulSoup(self.content,'lxml')
+				if len(self.bsObj.findAll('head',attrs={'name':'ROBOTS'}))!=0:
+					print("{} blacklisted ip: {} ... Dropping from proxies ...".format(self.getName(), proxy))
+					Crawler.proxies.remove(proxy)
+					self.req = None
 		
 	def check_page_index(self):
 		#get current page
@@ -153,11 +166,11 @@ class Crawler(Thread):
 			cur_time = datetime.now()
 			formated = cur_time.strftime('%Y-%m-%d %H:%M:%S')
 			
-			values = (row['adID'], row['condition'], row['make'], row['model'], row['price'], row['province'],
+			values = (row['adID'],row['adType'],row['condition'], row['make'], row['model'], row['price'], row['province'],
 			row['city'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'])
 
-			sql_autotrader = """INSERT INTO autotrader(adID, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type) 
-								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
+			sql_autotrader = """INSERT INTO autotrader(adID, adType, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type) 
+								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
 			
 			sql_turnover = """INSERT INTO turnover(adID, time_entered, time_updated) 
 							  VALUES('%s','%s',%s)
@@ -183,7 +196,7 @@ class Crawler(Thread):
 		#TODO: Include error handling for empty links
 		for link in self.links:
 
-			vehicle_details = {'adID':'','condition':'','make':'','model':'','price':'','province':'','city':'',
+			vehicle_details = {'adID':'','adType':'','condition':'','make':'','model':'','price':'','province':'','city':'',
 					'year':'','kilometres':'','exterior colour':'','fuel type':'','body type':''}
 
 			self.update_request(link) 
@@ -244,8 +257,9 @@ class Crawler(Thread):
 
 			#Rotate fresh proxies
 			#-----------------------------------------------------------------
-			if (len(Crawler.proxies) <= 5) and (proxy_lock.acquire(False)):
+			if (len(Crawler.proxies) <= 10) and (proxy_lock.acquire(False)):
 				print('{} rotating fresh proxies ...'.format(self.getName()))
+				logging.info('{} ROTATING FRESH PROXIES'.format(self.getName()))
 				self.main_Q.put(True)
 				fresh_proxies = self.worker_Q.get()
 				Crawler.proxies += fresh_proxies
@@ -271,7 +285,7 @@ if __name__ == '__main__':
 
 	parser.add_argument("-threads","--threads", type=int, default=10)
 	parser.add_argument("-proxy_total","--proxy_total", type=int, default=60)
-	parser.add_argument("-proxy_refresh","--proxy_refresh", type=int, default=10)
+	parser.add_argument("-proxy_refresh","--proxy_refresh", type=int, default=30)
 	parser.add_argument("-proxy_wait","--proxy_wait", type=int, default=30)
 	parser.add_argument("-timeout","--timeout", type=int, default=0)
 
@@ -284,6 +298,8 @@ if __name__ == '__main__':
 	max_index = 1000
 	num_proxies = args.proxy_total
 	cycled_proxies = args.proxy_refresh
+	timeout = args.timeout
+	proxy_wait = args.proxy_wait
 	set_threads = args.threads
 	threads,proxies = [],[]
 	db_lock = Lock()
@@ -302,11 +318,11 @@ if __name__ == '__main__':
 		print('retrieving proxies ...')
 		print('-----------------------------------------------------------------------------')
 	
-		while len(proxies)<num_proxies: proxies = get_proxies(num_proxies)
+		while len(proxies)<num_proxies: proxies = get_proxies(num_proxies,proxy_wait)
 		proxies = parse_proxies(proxies, 'https')
 	
 		for i in range(set_threads):
-			thread = Crawler(proxies,main_Q,worker_Q)
+			thread = Crawler(proxies,main_Q,worker_Q,timeout)
 			thread.setName('thread'+str(i))
 			threads.append(thread)
 			thread.start()
@@ -316,7 +332,7 @@ if __name__ == '__main__':
 			fresh_proxies = main_Q.get()
 			if fresh_proxies:
 				fresh_proxies = []
-				while len(fresh_proxies)<cycled_proxies: fresh_proxies = get_proxies(cycled_proxies)
+				while len(fresh_proxies)<cycled_proxies: fresh_proxies = get_proxies(cycled_proxies,proxy_wait)
 				fresh_proxies = parse_proxies(fresh_proxies, 'https')
 				worker_Q.put(fresh_proxies)
 			else:
@@ -326,7 +342,7 @@ if __name__ == '__main__':
 		for thread in threads: thread.join()
 	
 	logging.info("COMPLETED")
-	sys.exit(0)
+
 
 
 

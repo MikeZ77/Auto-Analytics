@@ -67,6 +67,7 @@ class TestWebsite(unittest.TestCase):
 		self.assertTrue(current_num.isdigit())
 		self.assertTrue(max_num.isdigit())
 		self.assertLessEqual(current_num, max_num)
+		self.assertLessEqual(max_num.isdigit(), 1000)
 
 	def testAdd_gtmManager(self):
 		parse = self.__class__._bsObjAdd.findAll('script',limit=3)[2].text
