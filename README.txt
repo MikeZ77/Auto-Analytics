@@ -23,4 +23,14 @@ RUN COMMAND:
 python3.6 autotrader.py -threads -proxy_total -proxy_refresh -proxy_wait -timeout
 
 
+DEPENDENCIES:
+
+pip install beautifulsoup4
+pip install lxml
+pip install mysql-connector
+pip install requests
+pip install argparse
+pip install asyncio
+pip install proxybroker
+
 

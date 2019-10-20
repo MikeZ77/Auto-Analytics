@@ -5,7 +5,6 @@ import os
 import time
 from threading import Thread, Lock
 from datetime import datetime
-import asyncio
 import logging
 import requests
 import argparse
@@ -13,19 +12,19 @@ import random
 import re
 
 def get_q(rng):
-	
+
 	Q = queue.Queue(1000)
 	for page in range(0,max_index*100,100):
-	
+
 		url = "https://www.autotrader.ca/cars/?rcp=100&rcs={}&srt=33&pRng={}%2C{}&prx=-1&loc=V3J%203S9&hprc=\
 			True&wcp=True&sts=New-Used&inMarket=advancedSearch\
 			".format(page,price_range[rng][0],price_range[rng][1])
 		Q.put(url)
-	
+
 	return Q
 
 def get_proxies(num, wait):
-	
+
 	os.system('> proxies.txt')
 	os.system('timeout '+str(wait)+'s '+'proxybroker find --types HTTPS --lvl High --countries US CA --strict -l '+ str(num) +' > proxies.txt')
 
@@ -39,7 +38,7 @@ def parse_proxies(proxy_list, protocol):
 	for proxy in proxy_list:
 		proxy.strip()
 		index = proxy.find(']')
-		parsed_list.append(protocol+'://'+proxy[index+2:len(proxy)-2]) 
+		parsed_list.append(protocol+'://'+proxy[index+2:len(proxy)-2])
 	print(parsed_list)
 	return parsed_list
 
@@ -94,19 +93,19 @@ class Crawler(Thread):
 
 		self.req = None
 		while str(self.req) != '<Response [200]>':
-			
+
 			time.sleep(Crawler.timeout)
 			try:
 				proxy = random.choice(Crawler.proxies)
 				self.req = requests.get(link,headers={'user-agent':random.choice(self.headers)}, proxies={'https':proxy}, timeout=10)
-			
+
 			except (requests.exceptions.Timeout, requests.exceptions.ConnectTimeout):
 				print("{} connection timeout using ip: {} ... Dropping from proxies ...".format(self.getName(), proxy))
-				if proxy in Crawler.proxies: 
+				if proxy in Crawler.proxies:
 					Crawler.proxies.remove(proxy)
 			except requests.exceptions.RequestException:
 				print("{} other connection issue using ip: {} ... Dropping from proxies ...".format(self.getName(), proxy))
-				if proxy in Crawler.proxies: 
+				if proxy in Crawler.proxies:
 					Crawler.proxies.remove(proxy)
 			else:
 				self.content = self.req.content
@@ -116,7 +115,7 @@ class Crawler(Thread):
 					print("{} blacklisted ip: {} ... Dropping from proxies ...".format(self.getName(), proxy))
 					Crawler.proxies.remove(proxy)
 					self.req = None
-		
+
 	def check_page_index(self):
 		#get current page
 		self.bsParse = str(self.bsObj.findAll('script',limit=24)[15:24])
@@ -131,7 +130,7 @@ class Crawler(Thread):
 			return False
 		else:
 			if current_page[-1]==',': current_page = current_page[:-1]
-			if int(current_page) < int(max_page): 
+			if int(current_page) < int(max_page):
 				print(self.path)
 				print('{} {}'.format(current_page,max_page))
 				print('{} {}'.format(type(current_page),type(max_page)))
@@ -142,34 +141,42 @@ class Crawler(Thread):
 				return True
 
 	def update_db(self, data):
-	
+
 		cursor = self.conn.cursor()
 		for row in data:
 
 			cur_time = datetime.now()
 			formated = cur_time.strftime('%Y-%m-%d %H:%M:%S')
-			
+
 			values = (row['adID'],row['adType'],row['condition'], row['make'], row['model'], row['price'], row['province'],
 			row['city'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'])
 
-			sql_autotrader = """INSERT INTO autotrader(adID, adType, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type) 
+			sql_autotrader = """INSERT INTO main(adID, adType, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type)
 								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
-			
-			sql_turnover = """INSERT INTO turnover(adID, time_entered, time_updated) 
+
+			sql_turnover = """INSERT INTO time(adID, time_entered, time_updated)
 							  VALUES('%s','%s',%s)
-							  ON DUPLICATE KEY UPDATE time_updated = '%s';"""%(row['adID'],formated,'NULL',formated)		
-			
+							  ON DUPLICATE KEY UPDATE time_updated = '%s';"""%(row['adID'],formated,'NULL',formated)
+
+			sql_vehicle_image = """
+								INSERT IGNORE INTO vehicle_image(full_vehicle, image_path) VALUES('%s',NULL);
+								"""%(row['make']+' '+row['model']+' '+row['year'])
+
 			try:
 				cursor.execute(sql_autotrader)
 				self.conn.commit()
 			except:
 				self.conn.rollback()
+			else:
+				cursor.execute(sql_vehicle_image)
+				self.conn.commit()
+
 			try:
 				cursor.execute(sql_turnover)
 				self.conn.commit()
 			except:
 				self.conn.rollback()
-		
+
 		cursor.close()
 
 	def gather_details(self):
@@ -182,8 +189,8 @@ class Crawler(Thread):
 			vehicle_details = {'adID':'','adType':'','condition':'','make':'','model':'','price':'','province':'','city':'',
 					'year':'','kilometres':'','exterior colour':'','fuel type':'','body type':''}
 
-			self.update_request(link) 
-			#collect data from gtmManager.initializeDataLayer				
+			self.update_request(link)
+			#collect data from gtmManager.initializeDataLayer
 			self.bsParse = self.bsObj.findAll('script',limit=3)
 
 			try:
@@ -224,7 +231,7 @@ class Crawler(Thread):
 		print('starting {} ...'.format(self.getName()))
 		self.path = Q.get()
 		self.update_request(self.path)
-		
+
 		while (last_page==False):
 
 			self.gather_links()
@@ -260,7 +267,7 @@ class Crawler(Thread):
 
 if __name__ == '__main__':
 	'''
-	autotrader.ca search returns a maximum of 1000 indices when 100 postiings per page is set. By breaking the search 
+	autotrader.ca search returns a maximum of 1000 indices when 100 postiings per page is set. By breaking the search
 	into price intervals, this allows the search to stay below the 1000 index max.
 	'''
 	#parse command line arguments
@@ -300,10 +307,10 @@ if __name__ == '__main__':
 		Q = get_q(current_range)
 		print('retrieving proxies ...')
 		print('-----------------------------------------------------------------------------')
-	
+
 		while len(proxies)<num_proxies: proxies = get_proxies(num_proxies,proxy_wait)
 		proxies = parse_proxies(proxies, 'https')
-	
+
 		for i in range(set_threads):
 			thread = Crawler(proxies,main_Q,worker_Q,timeout)
 			thread.setName('thread'+str(i))
@@ -320,14 +327,8 @@ if __name__ == '__main__':
 				worker_Q.put(fresh_proxies)
 			else:
 				break
-		
+
 		#block until all threads are joined
 		for thread in threads: thread.join()
-	
+
 	logging.info("COMPLETED")
-
-
-
-
-	
-	
