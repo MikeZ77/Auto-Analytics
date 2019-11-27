@@ -15,7 +15,6 @@ def get_q(rng):
 
 	Q = queue.Queue(1000)
 	for page in range(0,max_index*100,100):
-
 		url = "https://www.autotrader.ca/cars/?rcp=100&rcs={}&srt=33&pRng={}%2C{}&prx=-1&loc=V3J%203S9&hprc=\
 			True&wcp=True&sts=New-Used&inMarket=advancedSearch\
 			".format(page,price_range[rng][0],price_range[rng][1])
@@ -116,9 +115,11 @@ class Crawler(Thread):
 					Crawler.proxies.remove(proxy)
 					self.req = None
 
+				if len(self.bsObj) == 0: self.req = None
+
 	def check_page_index(self):
 		#get current page
-		self.bsParse = str(self.bsObj.findAll('script',limit=24)[15:24])
+		self.bsParse = str(self.bsObj.findAll('script',limit=25)[18:25])
 		start_index = self.bsParse.rfind('"CurrentPage":')
 		current_page = self.bsParse[start_index+15:start_index+18]
 		#get max page
@@ -126,19 +127,24 @@ class Crawler(Thread):
 		max_page = self.bsParse[start_index+11:start_index+14]
 
 		if not current_page or not max_page:
-			print(self.path)
+			print('------------------- NO CURRENT OR MAX PAGE -------------------')
 			return False
 		else:
 			if current_page[-1]==',': current_page = current_page[:-1]
-			if int(current_page) < int(max_page):
-				print(self.path)
-				print('{} {}'.format(current_page,max_page))
-				print('{} {}'.format(type(current_page),type(max_page)))
-				return False
-			else:
-				print('{} {}'.format(current_page,max_page))
-				print('{} {}'.format(type(current_page),type(max_page)))
-				return True
+
+		if current_page[0] == '0':
+			#Past last page CurrentPage and Lastpage is 0
+			print(self.bsObj)
+			return True
+		elif int(current_page) < int(max_page):
+			print(self.path)
+			print('{} {}'.format(current_page,max_page))
+			print('{} {}'.format(type(current_page),type(max_page)))
+			return False
+		else:
+			print('{} {}'.format(current_page,max_page))
+			print('{} {}'.format(type(current_page),type(max_page)))
+			return True
 
 	def update_db(self, data):
 
@@ -147,12 +153,13 @@ class Crawler(Thread):
 
 			cur_time = datetime.now()
 			formated = cur_time.strftime('%Y-%m-%d %H:%M:%S')
+			row['full vehicle'] = row['make']+' '+row['model']+' '+row['year']
 
 			values = (row['adID'],row['adType'],row['condition'], row['make'], row['model'], row['price'], row['province'],
-			row['city'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'])
+			row['city'], row['year'], row['kilometres'], row['exterior colour'], row['fuel type'], row['body type'], row['full vehicle'])
 
-			sql_autotrader = """INSERT INTO main(adID, adType, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type)
-								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
+			sql_autotrader = """INSERT INTO main(adID, adType, `condition`, make, model, price, province, city, `year`, kilometers, exterior_color, fuel_type, body_type, full_vehicle)
+								VALUES('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');"""%(values)
 
 			sql_turnover = """INSERT INTO time(adID, time_entered, time_updated)
 							  VALUES('%s','%s',%s)
@@ -160,7 +167,7 @@ class Crawler(Thread):
 
 			sql_vehicle_image = """
 								INSERT IGNORE INTO vehicle_image(full_vehicle, image_path) VALUES('%s',NULL);
-								"""%(row['make']+' '+row['model']+' '+row['year'])
+								"""%(row['full vehicle'])
 
 			try:
 				cursor.execute(sql_autotrader)

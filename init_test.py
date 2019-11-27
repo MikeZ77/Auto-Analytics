@@ -1,10 +1,10 @@
 import unittest
 import autotrader as a
 
-TEST_LINK = 'https://www.autotrader.ca/cars/?rcp=100&rcs=200&srt=3&prx=100&prv=British%20Columbia&loc=V3J%203S9&hprc=True&wcp=True&sts=New-Used&inMarket=basicSearch'   
+TEST_LINK = 'https://www.autotrader.ca/cars/?rcp=100&rcs=200&srt=3&prx=100&prv=British%20Columbia&loc=V3J%203S9&hprc=True&wcp=True&sts=New-Used&inMarket=basicSearch'
 HEADER = {'user-agent':'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0'}
 
-	
+
 class TestWebsite(unittest.TestCase):
 
 	@classmethod
@@ -18,7 +18,7 @@ class TestWebsite(unittest.TestCase):
 		#LINKS PAGE
 		#setup connections
 		cls._req = a.requests.get(TEST_LINK,headers=HEADER)
-		cls._dbConn = a.mysql.connector.connect(user='root', passwd='root', host='localhost',database='sys')
+		cls._dbConn = a.mysql.connector.connect(user='root', passwd='wc3tft', host='localhost',database='autotrader')
 		#setup page objects
 		cls._bsObj = a.BeautifulSoup(cls._req.content,'lxml')
 		cls._bsParse = cls._bsObj.findAll('div', {'class':'listing-details organic'})
@@ -30,7 +30,7 @@ class TestWebsite(unittest.TestCase):
 		cls._bsObjAdd = a.BeautifulSoup(cls._reqAdd.content,'lxml')
 
 
-	def testConnections(self):	
+	def testConnections(self):
 		self.assertEqual(str(self.__class__._req),'<Response [200]>')
 		self.assertEqual(str(self.__class__._reqAdd),'<Response [200]>')
 		self.assertTrue(self.__class__._dbConn. is_connected())
@@ -52,7 +52,7 @@ class TestWebsite(unittest.TestCase):
 	def testLinks_page(self):
 		#check that page indexing is available
 		page = str(self.__class__._bsObj.findAll('script',limit=24)[15:24])
-		
+
 		self.assertIn('"CurrentPage":',page)
 		self.assertIn('"MaxPage":',page)
 
@@ -98,6 +98,3 @@ class TestWebsite(unittest.TestCase):
 
 if __name__ == '__main__':
 	unittest.main()
-
-
-

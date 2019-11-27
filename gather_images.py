@@ -4,6 +4,43 @@ import argparse
 import random
 import os
 
+def update_vehicle_image_table():
+	cursor = conn.cursor()
+	#ONLY update table mapping / find images for vehicles which have a reasonable total count
+	QUERY = """
+			SELECT full_vehicle FROM
+			(
+			SELECT full_vehicle FROM autotrader.main
+			GROUP BY full_vehicle
+			HAVING COUNT(full_vehicle) > 30
+			) AS vehicle_to_add
+			WHERE full_vehicle NOT IN
+			(
+			SELECT full_vehicle FROM autotrader.vehicle_image
+			);
+			"""
+
+	cursor.execute(QUERY)
+	results = cursor.fetchall()
+
+	for full_vehicle in results:
+
+		QUERY = """
+				INSERT INTO `autotrader`.`vehicle_image`
+				(`full_vehicle`,
+				`image_path`)
+				VALUES
+				('%s', NULL);
+				"""%((full_vehicle[0]))
+
+		try:
+			cursor.execute(QUERY)
+			conn.commit()
+		except:
+			conn.rollback()
+
+	cursor.close()
+
 def get_proxies(num, wait):
 	os.system('> proxies.txt')
 	os.system('timeout '+str(wait)+'s '+'proxybroker find --types HTTPS --lvl High --countries US CA --strict -l '+ str(num) +' > proxies.txt')
@@ -36,7 +73,6 @@ def get_vehicles():
 	return results
 
 def update_path(path, full_vehicle):
-
 	QUERY = """
 			UPDATE vehicle_image SET image_path = '%s'
 			WHERE full_vehicle = '%s';
@@ -72,6 +108,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	filepath = args.filepath
 
+	update_vehicle_image_table()
 	proxy_list = get_proxies(30,30)
 	proxy_list = parse_proxies(proxy_list, 'https')
 	vehicle_results = get_vehicles()
@@ -113,8 +150,12 @@ if __name__ == '__main__':
 					proxy_list += add_proxy_list
 				continue
 
-			image_url = dict((req.json().get('data').get('result').get('items'))[0])['thumbnail']
-			print(image_url)
+			try:
+				image_url = dict((req.json().get('data').get('result').get('items'))[0])['thumbnail']
+				print(image_url)
+			except:
+				break
+
 			img_data = False
 			while img_data == False:
 				img_data = get_image(image_url, proxy)
