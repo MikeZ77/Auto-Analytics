@@ -1,0 +1,47 @@
+{% extends "dashboards/base_generic.html" %}
+{% load static %}
+{% block content %}
+{% load plotly_dash %}
+{% plotly_app name="descriptive" ratio=0.75 initial_arguments=data %}
+
+
+<script>
+  // $( document ).ready(function() {
+  //   var link = "{{dropdown_link}}";
+  //   var title = "{{dropdown_name}}"
+  //
+  //   $('.dropdown-menu').append('<a class="dropdown-item"></a>');
+  //   $(function() {
+  //     $('.dropdown-item').last().attr('href',link);
+  //     $('.dropdown-item').last().text(title);
+  //   });
+  //
+  // });
+  $('#link_dashboard').click(function(){
+    console.log('testing');
+  });
+
+  $( document ).ready(function() {
+    var link = "{{dropdown_link}}";
+    var title = "{{dropdown_name}}"
+    var urlAddLinks = $('#linkForm').data('urllinks');
+    $.ajax({
+      url: urlAddLinks,
+      data: {
+        'link': link,
+        'name_link': title,
+      },
+      dataType: 'json',
+      // success: function(response) {
+      //   $('#dropYear').html(response)
+      // }
+    });
+
+  });
+
+
+
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Styles CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Bowlby+One+SC&display=swap" rel="stylesheet">
+    <!-- https://gitbrent.github.io/bootstrap4-toggle/ -->
+    <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.5.0/css/bootstrap4-toggle.min.css" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="icon" href="{% static 'images/carfav.png' %}" sizes="32x32">
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <!-- <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script> -->
+    {% block title %}<title>Auto Analytics</title>{% endblock %}
+
+	<nav class="navbar navbar-expand-md sticky-top navbar-light">
+		<div style="margin-left: 15%">
+		    <a class="navbar-brand" href="/home/">
+          {% load static %}
+			    <img src="{% static "images/carlogo2.png" %}" width="150" height="100" class="d-inline-block align-top" alt="">
+			    <span id="home-title"><span style="color:grey;">AUTO</span>STATS.CA</span>
+	  		</a>
+  		</div>
+  		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
+   			 <span class="navbar-toggler-icon"></span>
+ 		</button>
+ 		<div style="margin-left: 5%">
+		  	<div class="collapse navbar-collapse" id="navbarNav">
+		    	<ul class="navbar-nav mx-auto">
+		     		<li class="nav-item active">
+                <!-- Dealer Insight -->
+		        		<a class="nav-link" href="#">Market <span class="sr-only">(current)</span></a>
+		      		</li>
+		      		<li class="nav-item">
+		        		<a class="nav-link" href="#">Valuation</a>
+		      		</li>
+		      		<li class="nav-item">
+		        		<a class="nav-link" href="#">About</a>
+		      		</li>
+		      		<li class="nav-item dropdown">
+
+                <form id="linkForm" method="GET" data-urllinks="{% url 'dashboards:update_link_cookies' %}">
+  				        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+  				          Dashboards
+  				        </a>
+  				        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                    <!-- Need a clear (clears cookies) -->
+  					        <!-- <a class="dropdown-item" href="#">Dashboard 1</a>
+  					        <a class="dropdown-item" href="#">Dashboard 3</a>
+  					        <a class="dropdown-item" href="#">Dashboard 4</a> -->
+  				        </div>
+                </form>
+
+             </li>
+		    	</ul>
+		 	</div>
+	 	</div>
+	</nav>
+  </head>
+    <<body>
+      {% block content %}
+
+      {% endblock %}
+
+      <!-- Optional JavaScript -->
+      <!-- Popper.js, then Bootstrap JS -->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+      <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.5.0/js/bootstrap4-toggle.min.js"></script>
+    </body>
+</html>

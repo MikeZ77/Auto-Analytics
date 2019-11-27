@@ -1,0 +1,167 @@
+{% extends "dashboards/base_generic.html" %}
+
+{% block content %}
+<div class="container">
+<div class="jumbotron bg-light text-dark">
+  <h1>Vehicle</h1>
+  <hr>
+    <form id="mainForm" method="GET"
+    data-urlmakes="{% url 'dashboards:make_choices_ajax' %}"
+    data-urlmodels="{% url 'dashboards:model_choices_ajax' %}"
+    data-urlyears="{% url 'dashboards:year_choices_ajax' %}"
+    >
+
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label"><span class="labels">Vehicle Type</span></label>
+      <div class="col-sm-10">
+        <select class="custom-select col-8" id="dropType" name="TypeDropdown">
+        <option>---------</option>
+        {% for item in types %}
+        <option value="{{ item.body_type }}">{{ item.body_type }}</option>
+        {% endfor %}
+      </select>
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label" for="dropMake"><span class="labels">Make</span></label>
+      <div class="col-sm-10">
+        <select class="custom-select col-8" id="dropMake" name="MakeDropdown">
+          <option value="">---------</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label" for="dropModel"><span class="labels">Model</span></label>
+      <div class="col-sm-10">
+        <select class="custom-select col-8" id="dropModel">
+          <option value="">---------</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label" for="dropYear"><span class="labels">Year</span></label>
+      <div class="col-sm-10">
+        <select class="custom-select col-8" id="dropYear">
+          <option value="">---------</option>
+        </select>
+      </div>
+    </div>
+    </form>
+    <h1>Dashboards</h1>
+    <hr>
+      <div id="toggle-wrapper">
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" data-toggle="toggle">
+            <span class="toggle-labels">Descriptive Analytics</span>
+          </label>
+        </div>
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" data-toggle="toggle">
+            <span class="toggle-labels">Value Analytics</span>
+          </label>
+        </div>
+        <div class="checkbox disabled">
+          <label>
+            <input type="checkbox" disabled data-toggle="toggle">
+            <span class="toggle-labels">Predictive Analytics</span>
+          </label>
+        </div>
+        </div>
+
+    <hr>
+
+    <form id="btnId"  method="GET" data-urlsubmit="{% url 'dashboards:validate_dashboard' %}">
+      <div id="button-wrapper">
+        <button class="btn btn btn-primary btn-lg btn-block" type='button'>
+          Generate Dashboard
+        </button>
+          <!-- <a class="btn btn btn-primary btn-lg btn-block" href="#" type="submit" role="button">Generate Dashboard</a> -->
+      </div>
+      <div class="submitErrors">
+        <div id="error"></div>
+      </div>
+    </form>
+</div>
+</div>
+
+  <script >
+    $("#dropType").change(function() {
+      var urlMakes = $('#mainForm').data('urlmakes');
+      var idMakes = $(this).val();
+      // console.log(idMakes)
+      $.ajax({
+        url: urlMakes,
+        data: {
+          id: idMakes
+        },
+        success: function(response) {
+          $('#dropMake').html(response)
+        }
+      })
+    });
+
+    $("#dropMake").change(function() {
+      var urlModels = $('#mainForm').data('urlmodels');
+      var prevIdType = $('#dropType').val();
+      var prevIdMake = $('#dropMake').val();
+      var idModels = $(this).val();
+      //console.log(idMakes)
+      $.ajax({
+        url: urlModels,
+        data: {
+          id: prevIdType+'/'+prevIdMake
+        },
+        success: function(response) {
+          $('#dropModel').html(response)
+        }
+      })
+    });
+
+    $("#dropModel").change(function() {
+      var urlYears = $('#mainForm').data('urlyears');
+      var prevIdType = $('#dropType').val();
+      var prevIdMake = $('#dropMake').val();
+      var prevIdModel = $('#dropModel').val();
+      var idYears = $(this).val();
+      //console.log(idMakes)
+      $.ajax({
+        url: urlYears,
+        data: {
+          id: prevIdType+'/'+prevIdMake+'/'+prevIdModel
+        },
+        success: function(response) {
+          $('#dropYear').html(response)
+        }
+      })
+    });
+
+    $("#btnId").click(function() {
+      var TypeVal = $("#dropType").val();
+      var MakeVal = $("#dropMake").val();
+      var ModelVal = $("#dropModel").val();
+      var YearVal = $("#dropYear").val();
+      var urlSubmit = $("#btnId").data('urlsubmit');
+      $.ajax({
+        url: urlSubmit,
+        data: {
+          'type': TypeVal,
+          'make': MakeVal,
+          'model': ModelVal,
+          'year': YearVal,
+        },
+        dataType: 'json',
+        success: function(response) {
+          if(response.success){
+            $("#btnId").attr("action", "dashboard/display/"+response.make+"/"+response.model+"/"+response.year+"/");
+            $("#btnId").submit();
+          }else{
+            if($('#error').children().length>0){ $('#error p' ).remove(); }
+            $("#error").append("<p>Please fill in "+response.error+"</p>")
+          }
+        }
+      })
+    });
+  </script>
+{% endblock %}
