@@ -9,64 +9,29 @@ import pandas as pd
 import mysql.connector
 import requests
 from django_plotly_dash import DjangoDash
+from . import colors
+#IDEAS: TOTAL POSTINGS, OPEN/CLOSED POSTINGS, TURNOVER
+#TABLE: total postings, open postings, turnover, p/km correlation
+#DESCRIPTIVE PRICE/VOLUME: price time series with volume trace (callback to compare price/class)
+#DESCRIPTIVE COLOR: Histogram with color/price
+#DESCRIPTIVE Kilometers
 
-#DASH APP
-app = DjangoDash(name='descriptive')
-
-app.layout = html.Div( children=[
-
-	dcc.Dropdown(id='vehicle_data', value='', style={'display': 'none'}),
-	html.Div(id='graph_body')
-
-],
-style={
-		'width': '100%',
-		'display': 'inline-block',
-		}
-)
-
-@app.callback(
-	dash.dependencies.Output('graph_body','children'),
-	[dash.dependencies.Input('vehicle_data','value')]
-	)
-def init_graphs(vehicle_values):
-	data = vehicle_values.split()
-
-	DASHBOARD = "Descriptive Analytics"
-	MAKE = "'"+data[0]+"'"
-	MODEL = "'"+data[1]+"'"
-	YEAR = "'"+data[2]+"'"
-
+#FUNCTIONS -----------------------------------------------------------------------------------------------------------------------
+def load_connection(type, make, model, year):
 	conn = mysql.connector.connect(user='root', password='wc3tft',
 	                              host='127.0.0.1',
 	                              database='autotrader')
 
 	df = pd.read_sql("SELECT * FROM main "
 					"LEFT JOIN time USING(adID) "
-					"WHERE make="+ MAKE +" AND model="+ MODEL +" AND year="+ YEAR, conn)
+					"WHERE body_type='"+type+"' AND make='"+make+"' AND model='"+model+"' AND year='"+year+"'", conn)
 	conn.close()
+	return df
 
-	pd.options.mode.chained_assignment = None
 
-	color_palett = {
-		'black':'rgb(0,0,0)',
-		'blue':'rgb(0,0,255)',
-		'burgundy':'rgb(159,29,53)',
-		'charcoal':'rgb(25,24,24)',
-		'dark grey':'rgb(105,105,105)',
-		'grey':'rgb(128,128,128)',
-		'red':'rgb(255,0,0)',
-		'silver':'rgb(192,192,192)',
-		'white':'rgb(255,255,255)',
-		'maroon':'rgb(128,0,0)',
-		'yellow':'rgb(255,255,0)',
-		'beige':'rgb(245,245,220)',
-		'green':'rgb(0,128,0)',
-		'brown':'rgb(139,69,19)',
-	}
-
+def load_image(make, model, year):
 	#QWANT IMAGE API
-	query = '{} {} {}'.format(MAKE, MODEL, YEAR)
+	query = '{} {} {}'.format(make, model, year)
 
 	try:
 		req = requests.get(
@@ -91,11 +56,9 @@ def init_graphs(vehicle_values):
 			image = dict((req.json().get('data').get('result').get('items'))[0])['thumbnail']
 		else:
 			image = '/static/images/not_available.jpeg'
+	return image
 
-	#SUBSET OF DATA SET IF REQURED FOR EACH GRAPH OBJECT
-
-	#IDEAS: TOTAL POSTINGS, OPEN/CLOSED POSTINGS, TURNOVER
-
+def load_time_series(df):
 	#time series
 	df_line = pd.DataFrame()
 
@@ -104,7 +67,9 @@ def init_graphs(vehicle_values):
 	df_line['price'] = pd.to_numeric(df['price'])
 
 	df_line = df_line.groupby('date', as_index=False).agg({"price": "mean"})
+	return df_line
 
+def load_histogram(df):
 	#histogram
 	df_bar = pd.DataFrame()
 
@@ -112,7 +77,9 @@ def init_graphs(vehicle_values):
 	df_bar['kilometers'] = df_bar['kilometers'].round(-4)
 	df_bar['count'] = 1
 	df_bar = df_bar.groupby('kilometers', as_index=False).agg({"count": "sum"})
+	return df_bar
 
+def load_pie_chart(df, color_palett):
 	#pie chart
 	df_pie = pd.DataFrame()
 
@@ -120,14 +87,21 @@ def init_graphs(vehicle_values):
 	df_pie['count'] = 1
 	df_pie = df_pie.groupby('color', as_index=False).agg({"count": "sum"})
 	df_pie = df_pie[df_pie['color'] != '-']
-
+	#ONLY use colors that are greater than 5% of the total, use the rest as 'other'
 	pie_total_colors = df_pie['count'].sum()
+	min = int(0.05 * pie_total_colors)
+	df_pie = df_pie[df_pie['count'] >= min].reset_index(drop = True)
+	pie_used_colors = df_pie['count'].sum()
+	df_other = pd.DataFrame([['other',pie_total_colors-pie_used_colors]],columns=['color','count'])
+	df_pie = df_pie.append(df_other, ignore_index=True)
+
 	pie_colors = []
 	for index,row in df_pie.iterrows():
-		#remvoe rare colors so no color dictionary occurs
-		if row['count']/pie_total_colors > 0.03:
-			pie_colors.append(color_palett[str(row['color'])])
+		pie_colors.append(color_palett[str(row['color'])])
 
+	return df_pie, pie_colors
+
+def load_bubble_chart(df):
 	#bubble chart
 	df_bubble = pd.DataFrame()
 	df_bubble['kilometers'] = pd.to_numeric(df['kilometers'].str[:-2].str.replace(',',''))
@@ -136,7 +110,9 @@ def init_graphs(vehicle_values):
 	df_bubble['count'] = 1
 
 	df_bubble = df_bubble.groupby('kilometers', as_index=False).agg({"price":"mean","count": "sum"})
+	return df_bubble
 
+def load_descriptive_table(df):
 	#DESCRIPTIVE STATISTICS TABLE
 	df_table = pd.DataFrame({'Statistic':['Price(CAD)','Kilometers(KM)'],
 							'Mean':[0,0],'SD':[0,0],'Variance':[0,0],
@@ -162,159 +138,177 @@ def init_graphs(vehicle_values):
 	df_table['Max'][0] = pd.to_numeric(df['price']).max()
 	df_table['Max'][1] = pd.to_numeric(df['kilometers'].str[:-2].str.replace(',','')).max()
 
+	return df_table
+
+def load_second_descriptive_table(df):
+	#SECOND DESCRIPTIVE STATISTICS TABLE
+	pass
+
+
+#DASH APP -----------------------------------------------------------------------------------------------------------------------
+app = DjangoDash(name='descriptive')
+
+app.layout = html.Div( children=[
+
+	dcc.Dropdown(id='vehicle_data', value='', style={'display': 'none'}),
+	html.Div(id='graph_body')
+
+],
+style={
+		'width': '100%',
+		'display': 'inline-block',
+		}
+)
+
+@app.callback(
+	dash.dependencies.Output('graph_body','children'),
+	[dash.dependencies.Input('vehicle_data','value')]
+	)
+def init_graphs(vehicle_values):
+	#MAIN -----------------------------------------------------------------------------------------------------------------------
+	data = vehicle_values.split()
+	color_palett = colors.color_palett
+	pd.options.mode.chained_assignment = None
+
+	DASHBOARD = "Descriptive Analytics"
+	TYPE, MAKE, MODEL, YEAR = (data[0], data[1], data[2], data[3])
+
+	df = load_connection(TYPE, MAKE, MODEL, YEAR)
+	image = load_image(MAKE, MODEL, YEAR)
+	df_line = load_time_series(df)
+	df_bar = load_histogram(df)
+	df_pie, pie_colors = load_pie_chart(df, color_palett)
+	df_bubble = load_bubble_chart(df)
+	df_table = load_descriptive_table(df)
+
 	return [
 		html.Div(children=[
-			html.H1(
-				children=['Dashboard - {}: {} {} {}'.format(DASHBOARD, YEAR.strip("'"),
-					MAKE.strip("'"), MODEL.strip("'"))
-				],
-				style={
-					'margin-left':'18%',
-					'font-family':'"Helvetica Neue", Helvetica, Arial, sans-serif',
-					'color':'#f9f9f9',
-					'font-size':'2.5em'
-				}
+			html.Div(children=[
+		    	html.H3('Descriptive Statistics',
+		    		style={
+		    			'color':'#404040',
+		    			'font-family':'"Helvetica Neue", Helvetica, Arial, sans-serif',
+		                # 'backgroundColor':'#ebebeb',
+		                'background-image': 'linear-gradient(to right, #dfdfe5 , #f8f8ff)',
+		                'line-height': '250%',
+		                'padding-left':'7px',
+		    			}
+		        ),
+				dash_table.DataTable(
+					data=df_table.to_dict('records'),
+					columns=[{'id': c, 'name': c} for c in df_table.columns],
+					style_cell={'textAlign': 'left','font_family': 'arial','backgroundColor':'#f5f5f5'},
+					style_cell_conditional=[{'if':{'column_id':c},'width':'131px'} for c in df_table.columns],
+					style_header={'background-image': 'linear-gradient(#850101, #a60101 , #850101)','fontWeight':'bold','color':'#f9f9f9','font_family': 'arial'},
+	                style_data_conditional=[{
+	                    "if": {"column_id": "Statistic"},
+	                    "backgroundColor": "#dfdfe5",
+	                    },
+	                ],
+				)],
+				style={'margin-bottom':'6px'}
 			),
-			html.Img(src=image, height='130',width='200',
-				style={
-					'margin-top':'20px',
-					'margin-left':'10px',
-					'position': 'absolute',
-					'top':'0px',
-					'border-style': 'solid',
-	  				'border-width': '3px',
-	  				'border-color': '#f9f9f9'
-				}
-			),
-			# html.Button('Save',
-			# 		id='link_dashboard',
-			# 		style = {
-			# 			'margin-left':'90%',
-			# 			'top':'75px',
-			# 			'position': 'absolute',
-			# 		}
-			# 		),
-			daq.StopButton(
-    			buttonText='Save Dashboard',
-				size=120,
-				style = {
-					'margin-left':'90%',
-					'top':'68px',
-					'position': 'absolute',
-
-				}
-			),
-			],
-			style={
-				'background-color':'#404040',
-				'padding': '30px',
-				'padding-left':'0',
-				'height':'100px'
-			}
-		),
-		html.Div(children=[
-			html.H3('Summary Statistics',
-				style={
-					'color':'#404040',
-					'font-family':'"Helvetica Neue", Helvetica, Arial, sans-serif'
-					}),
-			dash_table.DataTable(
-				data=df_table.to_dict('records'),
-				columns=[{'id': c, 'name': c} for c in df_table.columns],
-				style_cell={'textAlign': 'left'},
-				style_header={'backgroundColor':'#ef736b','fontWeight':'bold'}
-			)],
-			style={'width': '95%','margin': 'auto'},
-		),
-		html.Div(
-			dcc.Graph(
-				id='time-series',
-				figure = {
-					'data':[
-						go.Scatter(
-							x=df_line['date'],
-							y=df_line['price']
-						)
-					],
-					'layout': go.Layout(
-							title = 'Price History',
-							xaxis={'title': 'Date'},
-							yaxis={'title': 'Price (CAD)'},
-							template = 'ggplot2'
-						)
-				}
-			),
-			style={'width': '50%','display': 'inline-block'}
-		),
-		html.Div(
-			dcc.Graph(
-				id='histogram',
-				figure = {
-					'data':[
-						go.Bar(
-								x=df_bar['kilometers'],
-								y=df_bar['count']
+			html.Div(
+				dcc.Graph(
+					id='time-series',
+					figure = {
+						'data':[
+							go.Scatter(
+								x=df_line['date'],
+								y=df_line['price'],
+								marker=dict(color='#ac0404')
 							)
 						],
-					'layout': go.Layout(
-								title = 'Kilometers',
-								xaxis={'title': 'Kilometers'},
-								yaxis={'title': 'Vehicles'},
-								template = 'ggplot2'
-							)
-				}
-			),
-			style={'width': '50%','display': 'inline-block'}
-		),
-		html.Div(
-			dcc.Graph(
-				id='pie-chart',
-				figure = {
-					'data':[
-						go.Pie(
-							labels=df_pie['color'],
-							values=df_pie['count'],
-							hole=.3,
-							marker_colors=pie_colors
-						),
-					],
-					'layout':
-							go.Layout(
-								title = 'Exterior Color',
-								template = 'ggplot2'
-							)
-				}
-			),
-			style={'width': '50%',
-			'display': 'inline-block',
-			}
-		),
-		html.Div(
-			dcc.Graph(
-				id='bubble-chart',
-				figure = {
-					'data':[
-						go.Scatter(
-							x=df_bubble['kilometers'],
-							y=df_bubble['price'],
-							marker_size=df_bubble['count'],
-							mode='markers'
-						),
-					],
-					'layout':
-							go.Layout(
-								title = 'Kilometers to Price',
-								xaxis={'title': 'Kilometers'},
+						'layout': go.Layout(
+								title = 'Price History',
+								xaxis={'title': 'Date'},
 								yaxis={'title': 'Price (CAD)'},
 								template = 'ggplot2'
 							)
+					}
+				),
+				style={'width': '50%','display': 'inline-block'}
+			),
+			html.Div(
+				dcc.Graph(
+					id='histogram',
+					figure = {
+						'data':[
+							go.Bar(
+									x=df_bar['kilometers'],
+									y=df_bar['count'],
+									marker=dict(color='#ac0404')
+								)
+							],
+						'layout': go.Layout(
+									title = 'Kilometers',
+									xaxis={'title': 'Kilometers'},
+									yaxis={'title': 'Vehicles'},
+									template = 'ggplot2'
+								)
+					}
+				),
+				style={'width': '50%','display': 'inline-block'}
+			),
+			html.Div(
+				dcc.Graph(
+					id='pie-chart',
+					figure = {
+						'data':[
+							go.Pie(
+								labels=df_pie['color'],
+								values=df_pie['count'],
+								hole=.3,
+								marker_colors=pie_colors
+							),
+						],
+						'layout':
+								go.Layout(
+									title = 'Exterior Color',
+									template = 'ggplot2'
+								)
+					}
+				),
+				style={'width': '50%',
+				'display': 'inline-block',
 				}
 			),
-			style={'width': '50%',
-			'display': 'inline-block',
-			}
-		),
-	]
+			html.Div(
+				dcc.Graph(
+					id='bubble-chart',
+					figure = {
+						'data':[
+							go.Scatter(
+								x=df_bubble['kilometers'],
+								y=df_bubble['price'],
+								marker_size=df_bubble['count'],
+								marker=dict(color='#ac0404'),
+								mode='markers'
+							),
+						],
+						'layout':
+								go.Layout(
+									title = 'Kilometers to Price',
+									xaxis={'title': 'Kilometers'},
+									yaxis={'title': 'Price (CAD)'},
+									template = 'ggplot2'
+								)
+					}
+				),
+				style={'width': '50%',
+				'display': 'inline-block',
+				}
+			),
+		],
+	    style={
+            'width': '80%',
+			"backgroundColor": 'white',
+            'margin': 'auto',
+	        'position': 'relative',
+			'padding':'20px',
+            'top':'40px',
+            }
+	)]
 
 if __name__=='__main__':
 	app.run_server(debug=True)

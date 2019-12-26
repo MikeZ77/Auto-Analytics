@@ -66,6 +66,7 @@ class Crawler(Thread):
 		self.content = None
 		self.bsObj = None
 		self.path = None
+		self.debug = None
 		self.init_proxies(outside_proxy)
 		self.init_timeout(timeout)
 		#page structures
@@ -115,7 +116,7 @@ class Crawler(Thread):
 					Crawler.proxies.remove(proxy)
 					self.req = None
 
-				if len(self.bsObj) == 0: self.req = None
+				if len(str(self.content)) <= 1000: self.req = None
 
 	def check_page_index(self):
 		#get current page
@@ -128,22 +129,21 @@ class Crawler(Thread):
 
 		if not current_page or not max_page:
 			print('------------------- NO CURRENT OR MAX PAGE -------------------')
+			logging.warning("NO CURRENT OR MAX PAGE")
+			print('--------------------------------------------------------------')
 			return False
 		else:
 			if current_page[-1]==',': current_page = current_page[:-1]
 
 		if current_page[0] == '0':
 			#Past last page CurrentPage and Lastpage is 0
-			print(self.bsObj)
 			return True
 		elif int(current_page) < int(max_page):
 			print(self.path)
 			print('{} {}'.format(current_page,max_page))
-			print('{} {}'.format(type(current_page),type(max_page)))
 			return False
 		else:
 			print('{} {}'.format(current_page,max_page))
-			print('{} {}'.format(type(current_page),type(max_page)))
 			return True
 
 	def update_db(self, data):
@@ -169,11 +169,21 @@ class Crawler(Thread):
 								INSERT IGNORE INTO vehicle_image(full_vehicle, image_path) VALUES('%s',NULL);
 								"""%(row['full vehicle'])
 
+			sql_adjusted_price = """
+								INSERT INTO price_change(adID, adjusted_price, time_updated)
+								VALUES('%s', '%s', '%s')
+								ON DUPLICATE KEY UPDATE adjusted_price = '%s', time_updated = '%s';"""%(row['adID'], row['price'], formated, row['price'], formated)
+
+
 			try:
 				cursor.execute(sql_autotrader)
 				self.conn.commit()
 			except:
 				self.conn.rollback()
+				try:
+					cursor.execute(sql_adjusted_price)
+				except:
+					self.conn.rollback()
 			else:
 				cursor.execute(sql_vehicle_image)
 				self.conn.commit()

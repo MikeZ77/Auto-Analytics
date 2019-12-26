@@ -1,30 +1,22 @@
 {% extends "dashboards/base_generic.html" %}
 {% load static %}
 {% block content %}
+<div class="dashboardHeader">
+  <h1 class="dashboardText">Dashboard - Descriptive Analytics: {{ dropdown_name }}</h1>
+  <img class="dashboardImage" src="{% static image_path %}" width="200" height="135">
+  <button class="dashboardButton" type="button">Save Dashboard</button>
+</div>
 {% load plotly_dash %}
-{% plotly_app name="descriptive" ratio=0.75 initial_arguments=data %}
+{% plotly_app name="descriptive" ratio=0.66 initial_arguments=data %}
 
 
 <script>
-  // $( document ).ready(function() {
-  //   var link = "{{dropdown_link}}";
-  //   var title = "{{dropdown_name}}"
-  //
-  //   $('.dropdown-menu').append('<a class="dropdown-item"></a>');
-  //   $(function() {
-  //     $('.dropdown-item').last().attr('href',link);
-  //     $('.dropdown-item').last().text(title);
-  //   });
-  //
-  // });
-  $('#link_dashboard').click(function(){
-    console.log('testing');
-  });
-
-  $( document ).ready(function() {
+  //TODO: if image not available load alt image
+  $('.dashboardButton').click(function(){
     var link = "{{dropdown_link}}";
     var title = "{{dropdown_name}}"
     var urlAddLinks = $('#linkForm').data('urllinks');
+
     $.ajax({
       url: urlAddLinks,
       data: {
@@ -32,16 +24,27 @@
         'name_link': title,
       },
       dataType: 'json',
-      // success: function(response) {
-      //   $('#dropYear').html(response)
-      // }
+    });
+  });
+
+  $('.dashboardButton').click(function(){
+    var link = "{{dropdown_link}}";
+    var title = "{{dropdown_name}}"
+
+    $('.dropdown-menu').prepend('<a class="dropdown-item"></a>');
+    $(function() {
+      $('.dropdown-item').first().attr('href',link);
+      $('.dropdown-item').first().text(title);
     });
 
   });
 
+  getCookies();
 
-
+  $('#clear-dashboards').click(function(){
+    console.log("hello")
+    clearCookies();
+  });
 
 </script>
-
 {% endblock %}

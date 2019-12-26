@@ -44,5 +44,5 @@ class time(models.Model):
         return self.name
 
     adID = models.CharField(max_length=11,primary_key=True)
-    time_entered = models.DateField(null=True)
-    time_updated = models.DateField(null=True)
+    time_entered = models.DateTimeField(null=True)
+    time_updated = models.DateTimeField(null=True)

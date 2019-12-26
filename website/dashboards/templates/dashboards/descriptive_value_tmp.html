@@ -1,0 +1,50 @@
+{% extends "dashboards/base_generic.html" %}
+{% load static %}
+{% block content %}
+<div class="dashboardHeader">
+  <h1 class="dashboardText">Dashboard: {{ dropdown_name }}</h1>
+  <img class="dashboardImage" src="{% static image_path %}" width="200" height="135">
+  <button class="dashboardButton" type="button">Save Dashboard</button>
+</div>
+{% load plotly_dash %}
+{% plotly_app name="descriptive_value" ratio=0.71 initial_arguments=data %}
+
+
+<script>
+  //TODO: if image not available load alt image
+  $('.dashboardButton').click(function(){
+    var link = "{{dropdown_link}}";
+    var title = "{{dropdown_name}}"
+    var urlAddLinks = $('#linkForm').data('urllinks');
+
+    $.ajax({
+      url: urlAddLinks,
+      data: {
+        'link': link,
+        'name_link': title,
+      },
+      dataType: 'json',
+    });
+  });
+
+  $('.dashboardButton').click(function(){
+    var link = "{{dropdown_link}}";
+    var title = "{{dropdown_name}}"
+
+    $('.dropdown-menu').prepend('<a class="dropdown-item"></a>');
+    $(function() {
+      $('.dropdown-item').first().attr('href',link);
+      $('.dropdown-item').first().text(title);
+    });
+
+  });
+
+  getCookies();
+
+  $('#clear-dashboards').click(function(){
+    console.log("hello")
+    clearCookies();
+  });
+
+</script>
+{% endblock %}

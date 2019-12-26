@@ -6,16 +6,24 @@ from django.template import loader
 from dashboards.models import main
 from django.http import JsonResponse
 from django.utils.safestring import SafeString
+from django.db.models import Count, Q
 # Create your views here.
+#Documentation links:
+#Queries: https://docs.djangoproject.com/en/dev/topics/db/aggregation/#filtering-on-annotations
 
 def index(request):
-    type_list = main.objects.values('body_type').distinct().order_by('body_type')
+    type_list = main.objects.values('body_type').filter(~Q(body_type = '-'))\
+                .annotate(num_type=Count('body_type')).filter(num_type__gt=100).order_by('body_type')
+    # type_list = main.objects.values('body_type').distinct().order_by('body_type')
+    # print(type_list)
     context = {'types':type_list}
     return render(request,'dashboards/home_form.html',context)
 
 def make_choices_ajax(request):
     choice = request.GET.get('id')
-    makes_list = main.objects.filter(body_type=choice).values_list('make', flat=True).distinct().order_by('make')
+    makes_list = main.objects.filter(body_type=choice).values_list('make', flat=True)\
+                .annotate(num_make=Count('make')).filter(num_make__gt=20).order_by('make')
+    # makes_list = main.objects.filter(body_type=choice).values_list('make', flat=True).distinct().order_by('make')
     context = {'makes':makes_list}
     return render(request,'dashboards/make_dropdown.html',context)
 
@@ -41,6 +49,8 @@ def validate_dashboard(request):
         'make':request.GET['make'],
         'model':request.GET['model'],
         'year':request.GET['year'],
+        'descriptive':request.GET['descriptive'],
+        'value':request.GET['value'],
         'success':True,
         'error':None
     }
@@ -53,23 +63,38 @@ def validate_dashboard(request):
         data['error']='model'
     elif request.GET['year']=='':
         data['error']='year'
+    elif request.GET['descriptive'] == 'false' and request.GET['value'] == 'false':
+        data['error']='Please select at least one dashboard'
 
     if data['error']!=None: data['success']=False
 
     return JsonResponse(data)
 
-def dashboard_display(request,make,model,year):
+def dashboard_display(request,descriptive,value,type,make,model,year):
+    # CONVERT to booleans
+    descriptive = descriptive == "true"
+    value = value == "true"
 
-    context = {'data':'{"vehicle_data":{"value":"'+make+' '+model+' '+year+'"}}',
-                'dropdown_link':request.path,
-                'dropdown_name':make+' '+model+' '+year,
-                }
-    return render(request,'dashboards/descriptive_tmp.html',context)
+    if descriptive and not value:
+        context = {'data':'{"vehicle_data":{"value":"'+type+' '+make+' '+model+' '+year+'"}}',
+                    'dropdown_link':request.path,
+                    'dropdown_name':make+' '+model+' '+year,
+                    'image_path':'vehicle_images/'+make+'_'+model+'_'+year+'.jpg'
+                    }
+        return render(request,'dashboards/descriptive_tmp.html',context)
+    elif descriptive and value:
+        context = {'data':'{"tabs_data":{"value":"'+type+' '+make+' '+model+' '+year+'"}}',
+                    'dropdown_link':request.path,
+                    'dropdown_name':make+' '+model+' '+year,
+                    'image_path':'vehicle_images/'+make+'_'+model+'_'+year+'.jpg'
+                    }
+        return render(request,'dashboards/descriptive_value_tmp.html',context)
 
 def update_link_cookies(request):
-    print(request.GET.get('link', False))
-    print(request.GET.get('name_link', False))
-    print(request.method)
+    # print(request)
+    # print(request.GET.get('link', False))
+    # print(request.GET.get('name_link', False))
+    # print(request.method)
 
     if request.method=='GET':
 

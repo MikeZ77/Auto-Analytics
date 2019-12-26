@@ -52,19 +52,19 @@
       <div id="toggle-wrapper">
         <div class="checkbox">
           <label>
-            <input type="checkbox" data-toggle="toggle">
+            <input id="descriptiveCheck" type="checkbox" data-toggle="toggle">
             <span class="toggle-labels">Descriptive Analytics</span>
           </label>
         </div>
         <div class="checkbox">
           <label>
-            <input type="checkbox" data-toggle="toggle">
+            <input id="valueCheck" type="checkbox" data-toggle="toggle">
             <span class="toggle-labels">Value Analytics</span>
           </label>
         </div>
         <div class="checkbox disabled">
           <label>
-            <input type="checkbox" disabled data-toggle="toggle">
+            <input id="predictiveCheck" type="checkbox" disabled data-toggle="toggle">
             <span class="toggle-labels">Predictive Analytics</span>
           </label>
         </div>
@@ -142,7 +142,10 @@
       var MakeVal = $("#dropMake").val();
       var ModelVal = $("#dropModel").val();
       var YearVal = $("#dropYear").val();
+      var DescriptiveVal = $("#descriptiveCheck").prop("checked");
+      var ValueVal = $("#valueCheck").prop("checked");
       var urlSubmit = $("#btnId").data('urlsubmit');
+
       $.ajax({
         url: urlSubmit,
         data: {
@@ -150,18 +153,26 @@
           'make': MakeVal,
           'model': ModelVal,
           'year': YearVal,
+          'descriptive': DescriptiveVal,
+          'value': ValueVal,
         },
         dataType: 'json',
         success: function(response) {
           if(response.success){
-            $("#btnId").attr("action", "dashboard/display/"+response.make+"/"+response.model+"/"+response.year+"/");
+            $("#btnId").attr("action", "dashboard/descriptive="+response.descriptive+"/value="+response.value+"/"+response.type+"/"+response.make+"/"+response.model+"/"+response.year+"/");
             $("#btnId").submit();
           }else{
             if($('#error').children().length>0){ $('#error p' ).remove(); }
-            $("#error").append("<p>Please fill in "+response.error+"</p>")
+            if(response.error !== 'Please select at least one dashboard'){
+              $("#error").append("<p>Please fill in "+response.error+"</p>")
+            }else{
+              $("#error").append("<p>"+response.error+"</p>")
+            }
           }
         }
       })
     });
+
+  getCookies();
   </script>
 {% endblock %}

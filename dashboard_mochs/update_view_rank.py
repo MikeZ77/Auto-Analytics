@@ -3,7 +3,6 @@ import pandas as pd
 import mysql.connector
 import datetime
 
-
 def get_connection():
     conn = mysql.connector.connect(user='root', password='wc3tft',
                                   host='127.0.0.1',
