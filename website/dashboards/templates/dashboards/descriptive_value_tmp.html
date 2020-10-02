@@ -4,18 +4,99 @@
 <div class="dashboardHeader">
   <h1 class="dashboardText">Dashboard: {{ dropdown_name }}</h1>
   <img class="dashboardImage" src="{% static image_path %}" width="200" height="135">
-  <button class="dashboardButton" type="button">Save Dashboard</button>
 </div>
-{% load plotly_dash %}
-{% plotly_app name="descriptive_value" ratio=0.71 initial_arguments=data %}
+<div class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+    </div>
+  </div>
+</div>
+<div>
 
+<div class="dashboardContainer">
+  <div class="row">
+    <div class="col px-0">
+        <!-- <div class="dashboardSidebar"> -->
+          <button class="dashboardButton" id="dashboardButtonTabs" type="button">Save Dashboard</button>
+          <button type="button" class="dashboardButton" data-toggle="modal" data-target="#descriptiveModal"> 
+            Descriptive Terms
+          </button>
+          <button type="button" class="dashboardButton" data-toggle="modal" data-target="#descriptiveValueModal"> 
+            Value Terms
+          </button>
+        <!-- </div> -->
+    </div>
+    <div class="col-10 px-0">
+        <!-- <div class="mainDashboard"> -->
+        {% load plotly_dash %}
+        {% plotly_app name="descriptive_value" ratio=1.5 initial_arguments=data %}
+        <!-- </div> -->
+    </div>
+  </div>
+</div>
+<!-- Descriptive Modal -->
+<div class="modal fade" id="descriptiveModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Statistical Terms</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <span class="modalHeaders">Descriptive Statistics</span>
+        <hr>
+        <span class="modalSubHeaders">Mean:</span> Average of the sample data.
+        <br>
+        <span class="modalSubHeaders">Median:</span> The middle value seperating the lower and upper half of the sample data.
+        <br>
+        <span class="modalSubHeaders">Variance:</span> Measures how far a set of numbers are spread out from the average(mean) value.
+        <br>
+        <span class="modalSubHeaders">SD (Standard Devation):</span> The square root of the variance. Measures the spread but in the same units (price) as the sample data. For example, 68% of the sample vehicles fall in the price range [mean - 1*SD, mean + 1*SD] or one standard deviation.
+        <br>
+        <span class="modalSubHeaders">Min/Max:</span> The minimum and maximum values in the sample data.
+        <br>
+        <hr>
+        <span class="modalHeaders">Posting Details</span>
+        <hr>
+        <span class="modalSubHeaders">Mean Volume:</span> The average number of open postings (vehicles) over the entire period data is collected. Represents activity/popularity of a vehicle. 
+        <br>
+        <span class="modalSubHeaders">Mean Turnover (days):</span> The average length of time in days a posting is open. Represents the amount of time it takes to sell a vehicle.
+        <br>
+        <span class="modalSubHeaders">Dealer(%):</span> The precentage of postings that are by a vehicle dealership (as opposed to a private listing)
+        <hr>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Value Modal -->
+<div class="modal fade" id="descriptiveValueModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Statistical Terms</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
 
+        ...
+
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-  //TODO: if image not available load alt image
   $('.dashboardButton').click(function(){
     var link = "{{dropdown_link}}";
-    var title = "{{dropdown_name}}"
-    var urlAddLinks = $('#linkForm').data('urllinks');
+    var title = "{{dropdown_name}}";
+    var urlAddLinks = "{% url 'dashboards:update_link_cookies' %}";
+
+    var dashboardColor = $('#highlightText').css("color");
+    $('#highlightText').css("color","#f70027");
+    $('#highlightText').animate({color: dashboardColor}, 3000);
 
     $.ajax({
       url: urlAddLinks,
@@ -25,26 +106,29 @@
       },
       dataType: 'json',
     });
+    
+    var inDropdown = $( ".dropdown-menu" ).text().match(title)
+    if (inDropdown == null){
+      $('.dropdown-menu').prepend('<a class="dropdown-item"></a>');
+      $(function() {
+        $('.dropdown-item').first().attr('href',link);
+        $('.dropdown-item').first().text(title);
+      });
+    }
   });
 
-  $('.dashboardButton').click(function(){
-    var link = "{{dropdown_link}}";
-    var title = "{{dropdown_name}}"
+  $('#clear-dashboards').click(function(){
+    console.log("Hello")
+    var urlClearCookies = "{% url 'dashboards:clear_cookies' %}";
 
-    $('.dropdown-menu').prepend('<a class="dropdown-item"></a>');
-    $(function() {
-      $('.dropdown-item').first().attr('href',link);
-      $('.dropdown-item').first().text(title);
+    $.ajax({
+      url: urlClearCookies,
     });
+    $(".dropdown-item").remove()
 
   });
 
   getCookies();
-
-  $('#clear-dashboards').click(function(){
-    console.log("hello")
-    clearCookies();
-  });
 
 </script>
 {% endblock %}

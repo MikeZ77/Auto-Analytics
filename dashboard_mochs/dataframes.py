@@ -49,8 +49,6 @@ class CleanData():
         return df_depreciation
 
 class DataFrame(CleanData):
-    #CLASS variables
-    conn = mysql.connector.connect(user=os.environ['USER_NAME'], passwd=os.environ['PASSWORD'], host=os.environ['HOST_NAME'],database=os.environ['DATABASE'])
     def __init__(self, type, make, model, year):
         super().__init__()
         self.full_vehicle = make+" "+model+" "+year
@@ -58,6 +56,8 @@ class DataFrame(CleanData):
         self.make = make
         self.model = model
         self.year = year
+        #CONNECTION
+        self.conn = mysql.connector.connect(user=os.environ['USER_NAME'], passwd=os.environ['PASSWORD'], host=os.environ['HOST_NAME'],database=os.environ['DATABASE'])
         #STORE dataframes which will be resused as attributes
         self.df_year = None
         self.df_class_value_ratios = None
@@ -67,45 +67,46 @@ class DataFrame(CleanData):
 
         df_all_years = pd.read_sql("SELECT * FROM main "
         				"LEFT JOIN time USING(adID) "
-        				"WHERE body_type='"+ self.type +"' AND make='"+ self.make +"' AND model='"+ self.model+"'", DataFrame.conn)
+                        "LEFT JOIN price_change USING(adID) "
+        				"WHERE body_type='"+ self.type +"' AND make='"+ self.make +"' AND model='"+ self.model+"'", self.conn)
 
         df_all_years = self.clean_vehicle_all_years(df_all_years)
         self.df_year = self.clean_veicle_year(df_all_years, self.year)
         return df_all_years, self.df_year
 
     def get_current_stats_partition(self):
-            current_partition = """
-                        	SELECT PARTITION_NAME FROM information_schema.partitions
-                        	WHERE TABLE_SCHEMA='autotrader'
-                        	AND TABLE_NAME = 'total_stats'
-                        	AND PARTITION_NAME IS NOT NULL
-                        	ORDER BY information_schema.partitions.PARTITION_NAME DESC LIMIT 2 , 2;
-                            """
-            cursor = DataFrame.conn.cursor()
-            cursor.execute(current_partition)
-            partition = cursor.fetchall()[0][0]
-            cursor.close()
-            return partition
+        current_partition = """
+                    	SELECT PARTITION_NAME FROM information_schema.partitions
+                    	WHERE TABLE_SCHEMA='autotrader'
+                    	AND TABLE_NAME = 'total_stats'
+                    	AND PARTITION_NAME IS NOT NULL
+                    	ORDER BY information_schema.partitions.PARTITION_NAME DESC LIMIT 2 , 2;
+                        """
+        cursor = self.conn.cursor()
+        cursor.execute(current_partition)
+        partition = cursor.fetchall()[0][0]
+        cursor.close()
+        return partition
 
     def get_total_rank_count(self):
-        return ( pd.read_sql("SELECT COUNT(*) AS total_count FROM stats_rank_all ",DataFrame.conn) )
+        return ( pd.read_sql("SELECT COUNT(*) AS total_count FROM stats_rank_all ",self.conn) )
 
     def get_table_stats(self, partition):
         return (
         pd.read_sql("SELECT * FROM autotrader.total_stats PARTITION (`"+ partition +"`) "
-                    "WHERE full_vehicle ='"+ self.full_vehicle+"' AND body_type='"+self.type+"'", DataFrame.conn)
+                    "WHERE full_vehicle ='"+ self.full_vehicle+"' AND body_type='"+self.type+"'", self.conn)
         )
 
     def get_total_rank(self):
         return (
         pd.read_sql("SELECT * FROM stats_rank_all "
-                    "WHERE full_vehicle = '"+ self.full_vehicle+"' AND body_type= '"+ self.type+"'", DataFrame.conn)
+                    "WHERE full_vehicle = '"+ self.full_vehicle+"' AND body_type= '"+ self.type+"'", self.conn)
         )
 
     def get_total_class_rank(self):
         return (
         pd.read_sql("SELECT * FROM stats_rank_classes "
-                    "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type='"+self.type+"'", DataFrame.conn)
+                    "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type='"+self.type+"'", self.conn)
         )
 
     def get_class_list(self):
@@ -113,7 +114,7 @@ class DataFrame(CleanData):
                     "WHERE vehicle_class = ("
                     "SELECT vehicle_class FROM classes_mapping "
                     "WHERE full_vehicle = '"+ self.full_vehicle +"' "
-                    "AND vehicle_class LIKE '"+ self.type[:-1]+"%')", DataFrame.conn)
+                    "AND vehicle_class LIKE '"+ self.type[:-1]+"%')", self.conn)
 
         df_class_list = df_class['full_vehicle'].tolist()
         df_class_list = ["'"+vehicle+"'" for vehicle in df_class_list]
@@ -123,14 +124,14 @@ class DataFrame(CleanData):
     def get_class_value_ratios(self, partition, class_list):
         self.df_class_value_ratios = pd.read_sql("SELECT full_vehicle, `p/km`, `p/age`, dealer_premium, avg_physical_depr "
                     "FROM autotrader.total_stats PARTITION (`"+ partition +"`) "
-                    "WHERE full_vehicle IN ("+class_list+") AND body_type= '"+self.type+"'", DataFrame.conn)
+                    "WHERE full_vehicle IN ("+class_list+") AND body_type= '"+self.type+"'", self.conn)
         return self.df_class_value_ratios
 
     def get_class_depreciation(self, partition, class_list):
 
         self.df_class_depreciation = pd.read_sql("SELECT full_vehicle, 1_week_depr, 1_month_depr, 3_month_depr, 6_month_depr, 1_year_depr, 3_year_depr "
                 "FROM autotrader.total_stats PARTITION (`"+ partition +"`) "
-                "WHERE full_vehicle IN ("+class_list+") AND body_type= '"+self.type+"'", DataFrame.conn)
+                "WHERE full_vehicle IN ("+class_list+") AND body_type= '"+self.type+"'", self.conn)
         return self.df_class_depreciation
 
     def get_price_by_province(self):
@@ -139,7 +140,7 @@ class DataFrame(CleanData):
                     "FROM main "
                     "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type= '"+self.type+"'"
                     "GROUP BY province "
-                    "HAVING count(*) > 10 ",DataFrame.conn)
+                    "HAVING count(*) > 10 ",self.conn)
         )
 
     def get_table_stats_descriptive(self):
@@ -148,7 +149,7 @@ class DataFrame(CleanData):
                         "LEFT JOIN total_stats_p_age USING(full_vehicle, body_type) "
                         "LEFT JOIN total_stats_dealer_premium USING(full_vehicle, body_type) "
                         "LEFT JOIN total_stats_avg_phys_depr USING(full_vehicle, body_type)"
-                        "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type= '"+self.type+"'", DataFrame.conn)
+                        "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type= '"+self.type+"'", self.conn)
 
         df_table_stats_descriptive.columns = ['full_vehicle','body_type','min_p_km','max_p_km','sd_p_km','min_p_age','max_p_age',
                                             'sd_p_age','min_dealer','max_dealer','sd_dealer','min_phys_depr','max_phys_depr','sd_phys_depr']
@@ -157,8 +158,8 @@ class DataFrame(CleanData):
     def get_table_stats_depreciation(self):
         return (
             pd.read_sql("SELECT * FROM total_stats_dollar_depr "
-                        "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type= '"+self.type+"'", DataFrame.conn)
+                        "WHERE full_vehicle = '"+self.full_vehicle+"' AND body_type= '"+self.type+"'", self.conn)
         )
 
     def close_connection(self):
-        DataFrame.conn.close()
+        self.conn.close()

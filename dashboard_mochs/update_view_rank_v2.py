@@ -14,7 +14,8 @@ def get_distinct_vehicles_and_types():
 
     df_distinct_vehicles = pd.read_sql(
                     "SELECT DISTINCT make, model, year "
-                    "FROM main ", conn
+                    "FROM main "
+                    "WHERE model != 'Unspecified' ", conn
     )
     #CONVERT to python list
     list_distinct_vehicles = df_distinct_vehicles.values.tolist()
@@ -22,7 +23,7 @@ def get_distinct_vehicles_and_types():
     df_types = pd.read_sql(
                     "SELECT DISTINCT body_type "
                     "FROM ( "
-                    "SELECT body_type FROM autotrader.main "
+                    "SELECT body_type FROM main "
                     "GROUP BY body_type "
                     "HAVING COUNT(*) > 1000 "
                     ") AS valid_body_type "

@@ -10,5 +10,6 @@ urlpatterns = [
     path('year',views.year_choices_ajax,name='year_choices_ajax'),
     path('validate',views.validate_dashboard,name='validate_dashboard'),
     path('links',views.update_link_cookies,name='update_link_cookies'),
+    path('remove_links',views.clear_cookies,name='clear_cookies'),
     path('dashboard/descriptive=<str:descriptive>/value=<str:value>/<str:type>/<str:make>/<str:model>/<str:year>/',views.dashboard_display,name='dashboard_display'),
 ]

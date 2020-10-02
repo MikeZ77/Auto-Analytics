@@ -20,25 +20,30 @@
     <!-- jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <!-- <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script> -->
+    <!-- JQuery UI --> 
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
     {% block title %}<title>Auto Analytics</title>{% endblock %}
 
 	<nav class="navbar navbar-expand-md sticky-top navbar-light">
-		<div style="margin-left: 15%">
+		<div style="margin-left: 10%">
 		    <a class="navbar-brand" href="/home/">
           {% load static %}
-			    <img src="{% static "images/carlogo2.png" %}" width="150" height="100" class="d-inline-block align-top" alt="">
+			    <img src="{% static 'images/carlogo2.png' %}" width="150" height="100" class="d-inline-block align-top" alt="">
 			    <span id="home-title"><span style="color:grey;">AUTO</span>STATS.CA</span>
 	  		</a>
   		</div>
   		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
    			 <span class="navbar-toggler-icon"></span>
  		</button>
- 		<div style="margin-left: 5%">
+ 		<div style="margin-left: 2%">
 		  	<div class="collapse navbar-collapse" id="navbarNav">
 		    	<ul class="navbar-nav mx-auto">
-		     		<li class="nav-item active">
+		     		<!-- <li class="nav-item active"> -->
+              <li class="nav-item">
                 <!-- Dealer Insight -->
-		        		<a class="nav-link" href="#">Market <span class="sr-only">(current)</span></a>
+		        		<a class="nav-link" href="#"><span style="white-space: nowrap">Dealer Insights</span></a>
+                <!-- <span class="sr-only">(current)</span> -->
 		      		</li>
 		      		<li class="nav-item">
 		        		<a class="nav-link" href="#">Valuation</a>
@@ -48,14 +53,15 @@
 		      		</li>
 		      		<li class="nav-item dropdown">
 
-                <form id="linkForm" method="GET" data-urllinks="{% url 'dashboards:update_link_cookies' %}">
-  				        <a class="nav-link dropdown-toggle" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-  				          Dashboards
-  				        </a>
-  				        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                    <button id="clear-dashboards">CLEAR</button>
-  				        </div>
-                </form>
+                <!-- <form id="linkForm" method="GET" data-urllinks="{% url 'dashboards:update_link_cookies' %}"> -->
+				        <a class="nav-link dropdown-toggle" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+				          <span id="highlightText">Dashboards</span>
+				        </a>
+              <!--   </form> -->
+				        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                  <button id="clear-dashboards" >CLEAR</button>
+				        </div>
+                
 
              </li>
 		    	</ul>

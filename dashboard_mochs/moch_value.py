@@ -8,23 +8,7 @@ import numpy as np
 import pandas as pd
 import mysql.connector
 import datetime
-import textwrap
-
 from dataframes import DataFrame
-
-#TOOLTIPS
-def explain_value_ratios(value_ratio):
-    pass
-    # print(type(value_ratio))
-    # if value_ratio == 'P/KM':
-    #     print('lololol')
-    #     return 'Price/Kilometers'
-    # elif value_ratio == 'P/AGE':
-    #     return "hello"
-    # elif value_ratio == 'Physical Depretiation':
-    #     return "hello"
-    # else:
-    #     return "cat"
 
 #FUNCTIONS -----------------------------------------------------------------------------------------------------------------------------------
 def load_stats_table(df_obj):
@@ -162,7 +146,7 @@ def load_sub_table_value_ratios(df_obj):
 
     return df_hist_p_km, df_hist_p_age, df_hist_p_dealer_premium, df_hist_avg_physical_depr
 
-def load_sub_table_depretiation(df_class_depreciation):
+def load_sub_table_depretiation(df_obj):
 
     df_class_depreciation = df_obj.df_class_depreciation
     df_class_depreciation = df_obj.clean_depreciation(df_class_depreciation)
@@ -187,7 +171,7 @@ def load_sub_table_depretiation(df_class_depreciation):
 
     return df_hist_1_week_depr, df_hist_1_month_depr, df_hist_3_month_depr, df_hist_6_month_depr, df_hist_1_year_depr, df_hist_3_year_depr
 
-def load_value_by_location(df_current_year):
+def load_value_by_location(df_obj):
     df_current_year = df_obj.df_year
     # MAP variable province/traces to go.Box objects
     traces = list()
@@ -227,6 +211,37 @@ def load_value_by_location(df_current_year):
 
 
     return traces, province_options, df_by_city
+
+def buying_power(df_obj):
+    #GET only the adID's that have adjusted prices
+    df_current_year = df_obj.df_year
+    df_buying_power = df_current_year[['adID','price','adjusted_price','time_entered']]
+    df_buying_power = df_buying_power[df_buying_power['adjusted_price'].isnull() == False].reset_index(drop = True)
+    #COMPUTE probability of drop in price
+    max_price = int(df_buying_power['price'].max()) + 1
+    min_price = int(df_buying_power['price'].min()) - 1
+    #DIVIDE into 8 buckets
+    bucket_size = (max_price - min_price)/8
+    buckets = [min_price+(bucket_size*i) for i in range(9)]
+    #COMPUTE price and counts
+    df_buying_power['price_delta'] = df_buying_power['price'] - df_buying_power['adjusted_price']
+    df_group_total_count = df_buying_power.groupby(pd.cut(df_buying_power['price'], buckets))['price'].agg(total_count='count').reset_index()
+    df_buying_power = df_buying_power[df_buying_power['price_delta'] != 0].reset_index(drop = True)
+    df_group_count = df_buying_power.groupby(pd.cut(df_buying_power['price'], buckets))['price'].agg(count='count').reset_index()
+    df_group_price = df_buying_power.groupby(pd.cut(df_buying_power['price'], buckets))['price_delta'].agg(price_delta='mean').reset_index()
+    df_group_price['price_delta'] = df_group_price['price_delta'].fillna(0)
+    df_buckets = df_group_price['price']
+    #CONCAT and compute weighted average
+    df_group = pd.concat([df_buckets, df_group_price['price_delta'], df_group_count['count'], df_group_total_count['total_count']], axis=1)
+    df_group['probability'] = df_group['count'] / df_group['total_count']
+    df_group['weighted_avg'] = df_group['price_delta'] * df_group['probability']
+    df_group = df_group[['price','weighted_avg']]
+    #GET mid of each interval since graph objects to not seem yo support interval[float64] 
+    df_group['price'] = df_group['price'].apply(lambda interval: interval.mid)
+
+    return df_group
+
+
 #SETUP -----------------------------------------------------------------------------------------------------------------------------------
 
 #TEMP VEHICLE DATA
@@ -248,6 +263,7 @@ df_table_value, df_table_depr = load_stats_table(df_obj)
 df_hist_p_km, df_hist_p_age, df_hist_p_dealer_premium, df_hist_avg_physical_depr = load_sub_table_value_ratios(df_obj)
 df_hist_1_week_depr, df_hist_1_month_depr, df_hist_3_month_depr, df_hist_6_month_depr, df_hist_1_year_depr, df_hist_3_year_depr = load_sub_table_depretiation(df_obj)
 traces, province_options, df_by_city = load_value_by_location(df_obj)
+df_buying_power = buying_power(df_obj)
 df_obj.close_connection()
 
 #DASH APP -----------------------------------------------------------------------------------------------------------------------------------
@@ -676,6 +692,27 @@ app.layout = html.Div(children=[
                 'line-height': '250%',
                 'padding-left':'7px',
     			}
+        ),
+        dcc.Graph(
+            id='buying_power_plot',
+            figure={
+                'data':[
+                    go.Scatter(x=df_buying_power['price'],
+                        y=df_buying_power['weighted_avg'],
+                        fill='tozeroy',
+                        line_color='#cc0000')
+                ],
+                'layout': go.Layout(
+                            # title = {'text':'Buying Power','y':0.80,'x':0.5},
+                            xaxis={'title': 'Vehicle Price ($CAD)'},
+                            yaxis={'title': 'Weighted AVG Price Decrease ($CAD)'},
+                            template = 'ggplot2',
+                            margin={'t': 0, 'b':5}
+                        ), 
+            },
+            # style={
+            # 'padding-top':'-40px'
+            # }
         ),
     	html.H3('Value by Location',
     		style={
