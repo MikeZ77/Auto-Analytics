@@ -20,6 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# Key for local dev / testing
 SECRET_KEY = '7v--%h_(3#7(ozyhjgt$((+b(ij)k**%**ugi^zq+h9y*45jn6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -58,7 +59,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR,'templates')
+            os.path.join(BASE_DIR, 'templates')
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -81,11 +82,11 @@ WSGI_APPLICATION = 'autostats.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'autotrader',
-        'USER': 'root',
-        'PASSWORD': 'wc3tft',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['USER_NAME'],
+        'PASSWORD': os.environ['PASSWORD'],
+        'HOST': os.environ['HOST_NAME'],
+        'PORT': os.environ['PORT'],
     }
 }
 

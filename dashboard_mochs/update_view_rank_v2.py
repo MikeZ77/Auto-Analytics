@@ -4,10 +4,11 @@ import mysql.connector
 from tqdm import tqdm
 import math
 import datetime
+import os
 
-conn = mysql.connector.connect(user='root', password='wc3tft',
-                              host='127.0.0.1',
-                              database='autotrader')
+conn = mysql.connector.connect(user=os.environ['USER_NAME'], password=os.environ['PASSWORD'],
+                              host=host=os.environ['HOST_NAME'],
+                              database=os.environ['DATABASE'])
 
 
 def get_distinct_vehicles_and_types():

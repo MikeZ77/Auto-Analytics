@@ -12,12 +12,13 @@ import requests
 from django_plotly_dash import DjangoDash
 from . import colors
 import datetime
+import os
 
 #FUNCTIONS -----------------------------------------------------------------------------------------------------------------------
 def load_connection(type, make, model, year):
-	conn = mysql.connector.connect(user='root', password='wc3tft',
-	                              host='127.0.0.1',
-	                              database='autotrader')
+	conn = mysql.connector.connect(user=os.environ['USER_NAME'], password=os.environ['PASSWORD'],
+	                              host=os.environ['HOST_NAME'],
+	                              database=os.environ['DATABASE'])
 
 	df = pd.read_sql("SELECT * FROM main "
 					"LEFT JOIN time USING(adID) "

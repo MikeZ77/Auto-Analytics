@@ -8,10 +8,10 @@ proxy_wait=50
 timeout=0
 
 #environment variables
-export USER_NAME='root'
-export PASSWORD='wc3tft'
-export HOST_NAME='localhost'
-export DATABASE='autotrader'
+export USER_NAME=''
+export PASSWORD=''
+export HOST_NAME=''
+export DATABASE=''
 
 #run test script
 python -m unittest -v init_test.py
